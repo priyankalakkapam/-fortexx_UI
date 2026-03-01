@@ -1,35 +1,60 @@
-name: Node.js CI Pipeline
+name: Build and Deploy
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Agent job 1
+    runs-on: self-hosted
 
-    strategy:
-      matrix:
-        node-version: [18.x]
+    environment: TST
 
     steps:
-      - name: Checkout code
+      # 1. Initialize job (automatic in GitHub Actions)
+
+      # 2. Checkout (equivalent to Azure DevOps Checkout)
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Install dependencies
+      # 3. npm install
+      - name: npm install
+        shell: cmd
         run: npm install
 
-      - name: Run build
-        run: echo "Build Successful 🚀"
+      # 4. npm build
+      - name: npm build
+        shell: cmd
+        run: npm run build
 
-      - name: Run tests
-        run: npm test || echo "No tests defined"
+      # 5. Command Line (first - replace with your actual Azure DevOps command)
+      - name: Command Line
+        shell: cmd
+        run: |
+          echo Replace this with your actual command from Azure DevOps step 1
+
+      # 6. Archive /home (zip the build output)
+      - name: Archive /home
+        shell: cmd
+        run: |
+          tar -czf build-artifact.tar.gz dist
+          rem Change 'dist' to your actual build output folder
+
+      # 7. Publish Artifact
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: build-artifact.tar.gz
+          retention-days: 30
+
+      # 8. Command Line (second - replace with your actual Azure DevOps command)
+      - name: Command Line 2
+        shell: cmd
+        run: |
+          echo Replace this with your actual command from Azure DevOps step 2
+
+      # 9. Post-job Checkout cleanup (automatic in GitHub Actions)
