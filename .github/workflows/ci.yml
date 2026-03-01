@@ -14,36 +14,28 @@ jobs:
     environment: TST
 
     steps:
-      # 1. Initialize job (automatic in GitHub Actions)
-
-      # 2. Checkout (equivalent to Azure DevOps Checkout)
+      # 1. Checkout code
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 2. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
       # 3. npm install
       - name: npm install
         shell: cmd
         run: npm install
 
-      # 4. npm build
-      - name: npm build
-        shell: cmd
-        run: npm run build
-
-      # 5. Command Line (first - replace with your actual Azure DevOps command)
-      - name: Command Line
+      # 4. Archive the app files
+      - name: Archive app
         shell: cmd
         run: |
-          echo Replace this with your actual command from Azure DevOps step 1
+          tar -czf build-artifact.tar.gz app.js package.json
 
-      # 6. Archive /home (zip the build output)
-      - name: Archive /home
-        shell: cmd
-        run: |
-          tar -czf build-artifact.tar.gz dist
-          rem Change 'dist' to your actual build output folder
-
-      # 7. Publish Artifact
+      # 5. Publish Artifact
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -51,10 +43,16 @@ jobs:
           path: build-artifact.tar.gz
           retention-days: 30
 
-      # 8. Command Line (second - replace with your actual Azure DevOps command)
-      - name: Command Line 2
+      # 6. Azure Login
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 7. Deploy to Azure (update with your actual Azure service details)
+      - name: Deploy to Azure
         shell: cmd
         run: |
-          echo Replace this with your actual command from Azure DevOps step 2
-
-      # 9. Post-job Checkout cleanup (automatic in GitHub Actions)
+          echo Add your Azure deployment command here
+          rem Example for Azure Web App:
+          rem az webapp deploy --resource-group YOUR_RG --name YOUR_APP_NAME --src-path build-artifact.tar.gz
