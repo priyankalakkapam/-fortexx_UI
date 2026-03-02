@@ -11,12 +11,17 @@ jobs:
     environment: TST
 
     steps:
+      - name: Runner Environment Fix
+        # This tells Git to ignore ownership issues on Windows
+        run: git config --global --add safe.directory "*"
+
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # This prevents the "fatal: no submodule mapping" crash
+          # THIS IS THE FIX: Disable submodules to stop the 'no submodule mapping' error
           submodules: false
           fetch-depth: 1
+          clean: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,22 +34,23 @@ jobs:
       - name: Create Dist Folder
         shell: powershell
         run: |
-          # 1. Clear old data
+          # 1. Force remove old dist and create new one
           if (Test-Path "dist") { Remove-Item -Recurse -Force dist }
-          
-          # 2. Create the physical folder you want to see in the zip
           New-Item -ItemType Directory -Force -Path "dist"
           
-          # 3. Copy files into it
+          # 2. Copy your files into the dist folder
           Copy-Item -Path "app.js", "package.json", "package-lock.json" -Destination "dist" -Force
+          
+          # 3. Copy node_modules into dist (this makes it a working folder)
           if (Test-Path "node_modules") {
               Copy-Item -Path "node_modules" -Destination "dist" -Recurse -Force
           }
+          Write-Host "Success: 'dist' folder created with all files."
 
       - name: Archive fortexxui
+        # This zips the DIST folder itself so it matches your Azure setup
         shell: powershell
         run: |
-          # We zip the 'dist' folder itself so it appears as a folder when unzipped
           Compress-Archive -Path dist -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
 
       - name: Publish Artifact
