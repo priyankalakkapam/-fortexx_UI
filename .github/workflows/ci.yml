@@ -12,13 +12,11 @@ jobs:
 
     steps:
       - name: Runner Environment Fix
-        # Fixes git ownership issues on Windows
         run: git config --global --add safe.directory "*"
 
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          submodules: false
           fetch-depth: 1
 
       - name: Setup Node.js
@@ -26,29 +24,33 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Dependencies
+      - name: npm install
         run: npm install
 
-      - name: Run Build Script
-        # CRITICAL: We use 'cmd' because your package.json uses Windows 'xcopy' and 'if exist'
+      - name: Manual Build (Force Create Dist)
+        # Ikkada manam direct ga Windows commands vaadi folder create chesthunnam
         shell: cmd
-        run: npm run build
+        run: |
+          if exist dist rmdir /s /q dist
+          mkdir dist
+          echo D | xcopy app.js dist\ /y
+          echo D | xcopy package.json dist\ /y
+          xcopy node_modules dist\node_modules\ /s /e /y /i
+
+      - name: Verify Folder Existence
+        shell: cmd
+        run: |
+          dir dist
+          if exist dist (echo "SUCCESS: Dist folder is ready") else (exit 1)
 
       - name: Archive fortexxui
-        # We use 'powershell' for zipping as it is more reliable for compression
         shell: powershell
         run: |
-          if (Test-Path "dist") {
-              Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
-              Write-Host "Success: 'dist' folder contents zipped."
-          } else {
-              Write-Error "Error: 'dist' folder was NOT found! Check the 'Run Build Script' logs."
-              exit 1
-          }
+          # Zipping the verified dist folder
+          Compress-Archive -Path dist\* -DestinationPath fortexxui.zip -Force
 
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
-          path: fortexxui-${{ github.run_number }}.zip
-          retention-days: 5
+          path: fortexxui.zip
