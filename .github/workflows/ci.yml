@@ -11,10 +11,20 @@ jobs:
     environment: TST
 
     steps:
+      - name: Hard Cleanup of Ghost Path
+        shell: powershell
+        run: |
+          # This forces the local git index to forget the 'Users' folder 
+          # so the checkout step doesn't crash.
+          git rm -r --cached Users --ignore-unmatch
+          Write-Host "Ghost path removed from index."
+
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
+          # This tells GitHub: "Do not try to find submodules"
           submodules: false
+          fetch-depth: 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,23 +34,19 @@ jobs:
       - name: npm install
         run: npm install
 
-      - name: Create Dist Folder
+      - name: Create Dist for Azure
         shell: powershell
         run: |
-          # 1. Ensure a clean dist directory exists
           if (Test-Path "dist") { Remove-Item -Recurse -Force dist }
           New-Item -ItemType Directory -Force -Path "dist"
-          
-          # 2. Copy the files you just verified (node_modules + app logic)
           Copy-Item -Path "app.js", "package.json", "package-lock.json" -Destination "dist" -Force
-          Copy-Item -Path "node_modules" -Destination "dist" -Recurse -Force
-          
-          Write-Host "Dist folder successfully prepared with node_modules."
+          if (Test-Path "node_modules") {
+              Copy-Item -Path "node_modules" -Destination "dist" -Recurse -Force
+          }
 
       - name: Archive Artifact
         shell: powershell
         run: |
-          # Zip the contents of the dist folder
           Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
 
       - name: Publish Artifact
