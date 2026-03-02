@@ -1,34 +1,43 @@
-name: Fortexx UI CI
+name: Build and Publish Artifact
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
+    # Using your self-hosted Windows runner
     runs-on: self-hosted
+    
+    # Using the TST environment you created
     environment: TST
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Check Node Version
-        run: node -v
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Adjust based on your project requirements
 
-      - name: Install Packages
+      - name: npm install
         run: npm install
 
-      # Zip entire project (excluding node_modules)
-      - name: Create ZIP
-        shell: powershell
-        run: |
-          Compress-Archive `
-            -Path * `
-            -DestinationPath "fortexxui-${{ github.run_number }}.zip" `
-            -Force
+      - name: npm build
+        run: npm run build
 
-      - uses: actions/upload-artifact@v4
+      # Archiving the dist folder as seen in your screenshots
+      - name: Archive Build Folder
+        run: |
+          Compress-Archive -Path dist/* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+        shell: pwsh
+
+      # Publishing the artifact to GitHub
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
-          path: fortexxui-*.zip
+          path: fortexxui-${{ github.run_number }}.zip
+          retention-days: 5
