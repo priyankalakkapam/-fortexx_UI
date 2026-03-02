@@ -1,4 +1,4 @@
-name: Build and Publish Artifact
+name: Build and Deploy to Azure
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: azure/setup-node@v4
         with:
           node-version: '20'
 
@@ -29,22 +29,42 @@ jobs:
         run: npm install
 
       - name: npm build
-        # This triggers the script we added to your package.json
+        # This triggers the PowerShell script you just pushed to package.json
         run: npm run build
 
-      - name: Archive fortexxui
+      - name: Archive Artifact
         shell: powershell
         run: |
-          # Ensure the dist folder actually exists before zipping
           if (Test-Path "dist") {
-              Compress-Archive -Path dist -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+              Compress-Archive -Path dist\* -DestinationPath fortexxui.zip -Force
           } else {
-              Write-Error "Build failed: 'dist' folder not found!"
+              Write-Error "dist folder missing!"
               exit 1
           }
 
-      - name: Publish Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
-          path: fortexxui-${{ github.run_number }}.zip
+          path: fortexxui.zip
+
+  deploy:
+    runs-on: self-hosted
+    needs: build
+    environment: TST
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: FortexxUI
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'your-app-name' # Replace with your actual Azure Web App name
+          package: fortexxui.zip
