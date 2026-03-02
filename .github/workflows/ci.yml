@@ -22,32 +22,19 @@ jobs:
       - name: npm install
         run: npm install
 
-      - name: npm build
-        run: npm run build
-
-      - name: Locate and Archive Build Output
+      # We are skipping 'npm run build' because your app doesn't create a 'dist' folder
+      
+      - name: Archive Project Files
         shell: powershell
         run: |
-          # 1. List files to help us debug if it fails again
-          Write-Host "Listing files in the current directory:"
-          ls
-          
-          # 2. Check for 'dist' or 'build' or 'out'
-          $targetFolder = ""
-          if (Test-Path "dist") { $targetFolder = "dist" }
-          elseif (Test-Path "build") { $targetFolder = "build" }
-          elseif (Test-Path "out") { $targetFolder = "out" }
-
-          if ($targetFolder -ne "") {
-              Write-Host "Found output in '$targetFolder'. Archiving..."
-              Compress-Archive -Path "$targetFolder\*" -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
-          } else {
-              Write-Error "Could not find 'dist', 'build', or 'out' folders. Check your package.json build script."
-              exit 1
-          }
+          # We zip the app.js, package.json, and node_modules
+          # This creates the artifact for deployment
+          Compress-Archive -Path app.js, package.json, package-lock.json, node_modules -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+          Write-Host "Success: Created fortexxui-${{ github.run_number }}.zip"
 
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
           path: fortexxui-${{ github.run_number }}.zip
+          retention-days: 5
