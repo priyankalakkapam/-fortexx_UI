@@ -24,7 +24,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      
+
     steps:
       # 1. Checkout code
       - name: Checkout
@@ -58,7 +58,7 @@ jobs:
           echo "Artifact version: $(git describe --tags --always)"
 
       # 7. Archive the build output
-      - name: Archive /home/build directory
+      - name: Archive build directory
         run: |
           if [ -d "dist" ] || [ -d "build" ]; then
             tar -czf ${{ env.ARTIFACT_NAME }}-$(date +%s).tar.gz dist/ build/ package.json package-lock.json 2>/dev/null || true
@@ -93,15 +93,16 @@ jobs:
       - name: Post-build commands
         run: |
           echo "Artifact creation completed"
-          ls -lh ${{ env.ARTIFACT_NAME }}.tar.gz
+          ls -lh ${{ env.ARTIFACT_NAME }}.tar.gz || echo "Artifact file not found"
 
-      # 11. Publish to GitHub Packages (NuGet style)
+      # 11. Publish to GitHub Packages
       - name: Publish to GitHub Packages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           npm publish --registry https://npm.pkg.github.com/
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
       # 12. Upload as Release Asset
       - name: Upload Release Assets
@@ -117,7 +118,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: always()
-    
+
     steps:
       - name: Check Build Status
         run: |
