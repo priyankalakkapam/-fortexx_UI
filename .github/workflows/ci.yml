@@ -1,75 +1,132 @@
-name: Build and Deploy
+name: Build and Publish Artifact
 
 on:
   push:
     branches:
       - main
+      - develop
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+
+env:
+  ARTIFACT_NAME: fortexxui
+  NODE_VERSION: '18'
 
 jobs:
   build:
-    name: Agent job 1
-    runs-on: self-hosted
-
+    name: Build Job
+    runs-on: ubuntu-latest
     environment: TST
-
+    permissions:
+      contents: read
+      packages: write
+      
     steps:
       # 1. Checkout code
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 2. Setup Node.js
+      # 2. Initialize Job
+      - name: Initialize job
+        run: echo "Starting build pipeline for ${{ env.ARTIFACT_NAME }}"
+
+      # 3. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
 
-      # 3. npm install
+      # 4. npm install
       - name: npm install
-        shell: cmd
         run: npm install
 
-      # 4. npm build
+      # 5. npm build
       - name: npm build
-        shell: cmd
         run: npm run build
 
-      # 5. Command Line step
-      - name: Command Line
-        shell: cmd
+      # 6. Command Line - Custom commands
+      - name: Pre-archive commands
         run: |
-          echo Add your custom command here
+          echo "Build completed successfully"
+          echo "Artifact version: $(git describe --tags --always)"
 
-      # 6. Archive the app files
-      - name: Archive app
-        shell: cmd
+      # 7. Archive the build output
+      - name: Archive /home/build directory
         run: |
-          tar -czf build-artifact.tar.gz app.js package.json
+          if [ -d "dist" ] || [ -d "build" ]; then
+            tar -czf ${{ env.ARTIFACT_NAME }}-$(date +%s).tar.gz dist/ build/ package.json package-lock.json 2>/dev/null || true
+            tar -czf ${{ env.ARTIFACT_NAME }}.tar.gz dist/ build/ package.json package-lock.json 2>/dev/null || true
+          else
+            echo "Creating artifact from root directory"
+            tar -czf ${{ env.ARTIFACT_NAME }}.tar.gz . --exclude=node_modules --exclude=.git
+          fi
 
-      # 7. Publish Artifact
+      # 8. Publish Artifact to GitHub (for all branches)
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifact
-          path: build-artifact.tar.gz
+          name: ${{ env.ARTIFACT_NAME }}-build
+          path: ${{ env.ARTIFACT_NAME }}.tar.gz
           retention-days: 30
+          if-no-files-found: ignore
 
-      # 8. Second Command Line step
-      - name: Command Line 2
-        shell: cmd
-        run: |
-          echo Add your second custom command here
-
-      # 9. Azure Login
-      - name: Azure Login
-        uses: azure/login@v2
+      # 9. Upload to Release (only on tag push)
+      - name: Create Release and Upload Artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          files: ${{ env.ARTIFACT_NAME }}.tar.gz
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 10. Deploy to Azure
-      - name: Deploy to Azure
-        shell: cmd
+      # 10. Command Line - Post-archive
+      - name: Post-build commands
         run: |
-          echo Add your Azure deployment command here
-          rem Example for Azure Web App:
-          rem az webapp deploy --resource-group YOUR_RG --name YOUR_APP_NAME --src-path build-artifact.tar.gz
+          echo "Artifact creation completed"
+          ls -lh ${{ env.ARTIFACT_NAME }}.tar.gz
+
+      # 11. Publish to GitHub Packages (NuGet style)
+      - name: Publish to GitHub Packages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          npm publish --registry https://npm.pkg.github.com/
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 12. Upload as Release Asset
+      - name: Upload Release Assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifact
+          path: ${{ env.ARTIFACT_NAME }}.tar.gz
+          retention-days: 90
+
+  notify:
+    name: Post-job Notification
+    needs: build
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Check Build Status
+        run: |
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            echo "✅ Build completed successfully!"
+          else
+            echo "❌ Build failed!"
+            exit 1
+          fi
+
+      - name: Report build results
+        run: echo "Build pipeline finished with status: ${{ needs.build.result }}"
