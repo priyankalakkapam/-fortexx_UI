@@ -8,19 +8,21 @@ on:
 jobs:
   build:
     runs-on: self-hosted
+    # Using the TST environment from your screenshot
     environment: TST
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # Submodule errors raakunda idhi help chestundi
-          submodules: false 
+          # This prevents the "fatal: no submodule mapping" error
+          submodules: false
+          fetch-depth: 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Me runner lo unna version ki thaggattu
+          node-version: '20'
 
       - name: npm install
         run: npm install
@@ -28,19 +30,24 @@ jobs:
       - name: npm build
         run: npm run build
 
-      - name: Archive Build Folder
-        # 'pwsh' badulu 'powershell' use chestunnam, endukante me runner lo pwsh ledhu
-        run: |
-          if (Test-Path dist) {
-            Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
-          } else {
-            Write-Host "Error: dist folder kanapadaledhu!"
-            exit 1
-          }
+      - name: Archive Artifacts
         shell: powershell
+        run: |
+          # Check if 'dist' folder exists, otherwise check for 'build' folder
+          if (Test-Path "dist") {
+              Write-Host "Success: 'dist' folder found."
+              Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+          } elseif (Test-Path "build") {
+              Write-Host "Note: Found 'build' folder instead of 'dist'."
+              Compress-Archive -Path build\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+          } else {
+              Write-Error "Error: No build output (dist/build) folder found. Verify your build script in package.json."
+              exit 1
+          }
 
-      - name: Publish Artifact
+      - name: Publish Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
           path: fortexxui-${{ github.run_number }}.zip
+          retention-days: 5
