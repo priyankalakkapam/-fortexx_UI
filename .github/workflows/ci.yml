@@ -14,13 +14,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # This prevents the "submodule mapping" error from stopping the build
+          # Submodule errors raakunda idhi help chestundi
           submodules: false 
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.13.1' # Matching your local version
+          node-version: '20' # Me runner lo unna version ki thaggattu
 
       - name: npm install
         run: npm install
@@ -29,12 +29,12 @@ jobs:
         run: npm run build
 
       - name: Archive Build Folder
-        # Changed 'shell: pwsh' to 'shell: powershell'
+        # 'pwsh' badulu 'powershell' use chestunnam, endukante me runner lo pwsh ledhu
         run: |
           if (Test-Path dist) {
             Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
           } else {
-            Write-Error "Dist folder not found! Build might have failed."
+            Write-Host "Error: dist folder kanapadaledhu!"
             exit 1
           }
         shell: powershell
