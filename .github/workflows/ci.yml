@@ -8,15 +8,11 @@ on:
 jobs:
   build:
     runs-on: self-hosted
-    # Links to the environment you created in your screenshots
     environment: TST
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          # Now that we cleaned the repo, this will be much faster
-          submodules: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,21 +25,29 @@ jobs:
       - name: npm build
         run: npm run build
 
-      - name: Archive Build Output
+      - name: Locate and Archive Build Output
         shell: powershell
         run: |
-          # Check if dist folder exists after npm build
-          if (Test-Path "dist") {
-              Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
-              Write-Host "Success: Created fortexxui-${{ github.run_number }}.zip"
+          # 1. List files to help us debug if it fails again
+          Write-Host "Listing files in the current directory:"
+          ls
+          
+          # 2. Check for 'dist' or 'build' or 'out'
+          $targetFolder = ""
+          if (Test-Path "dist") { $targetFolder = "dist" }
+          elseif (Test-Path "build") { $targetFolder = "build" }
+          elseif (Test-Path "out") { $targetFolder = "out" }
+
+          if ($targetFolder -ne "") {
+              Write-Host "Found output in '$targetFolder'. Archiving..."
+              Compress-Archive -Path "$targetFolder\*" -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
           } else {
-              Write-Error "Error: 'dist' folder not found. Check build logs above."
+              Write-Error "Could not find 'dist', 'build', or 'out' folders. Check your package.json build script."
               exit 1
           }
 
-      - name: Publish Artifact to GitHub
+      - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
           path: fortexxui-${{ github.run_number }}.zip
-          retention-days: 5
