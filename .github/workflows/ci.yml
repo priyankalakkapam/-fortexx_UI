@@ -11,18 +11,16 @@ jobs:
     environment: TST
 
     steps:
-      - name: Hard Cleanup of Ghost Path
+      - name: Force Clean Ghost Path
         shell: powershell
         run: |
-          # This forces the local git index to forget the 'Users' folder 
-          # so the checkout step doesn't crash.
+          # This stops the "no submodule mapping" error before it starts
           git rm -r --cached Users --ignore-unmatch
-          Write-Host "Ghost path removed from index."
+          Write-Host "Cleaned ghost submodule reference."
 
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # This tells GitHub: "Do not try to find submodules"
           submodules: false
           fetch-depth: 1
 
@@ -34,20 +32,27 @@ jobs:
       - name: npm install
         run: npm install
 
-      - name: Create Dist for Azure
+      - name: Create Dist Folder Structure
         shell: powershell
         run: |
+          # 1. Delete old dist if it exists and create a fresh one
           if (Test-Path "dist") { Remove-Item -Recurse -Force dist }
           New-Item -ItemType Directory -Force -Path "dist"
+          
+          # 2. Copy your app files INTO the dist folder
           Copy-Item -Path "app.js", "package.json", "package-lock.json" -Destination "dist" -Force
+          
+          # 3. Copy node_modules into dist (this makes it a working folder)
           if (Test-Path "node_modules") {
               Copy-Item -Path "node_modules" -Destination "dist" -Recurse -Force
           }
+          Write-Host "Success: 'dist' folder created with all files."
 
-      - name: Archive Artifact
+      - name: Archive fortexxui
         shell: powershell
         run: |
-          Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+          # This zips the DIST folder itself so it looks like your screenshot
+          Compress-Archive -Path dist -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
 
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
