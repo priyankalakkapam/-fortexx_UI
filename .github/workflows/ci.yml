@@ -12,13 +12,12 @@ jobs:
 
     steps:
       - name: Runner Environment Fix
-        # Prevents Git ownership errors on self-hosted Windows runners
+        # Fixes git ownership issues on Windows
         run: git config --global --add safe.directory "*"
 
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # Ignores the ghost submodule error
           submodules: false
           fetch-depth: 1
 
@@ -27,23 +26,23 @@ jobs:
         with:
           node-version: '20'
 
-      - name: npm install
+      - name: Install Dependencies
         run: npm install
 
-      - name: npm build
-        # Force Windows to allow the build script to run and create the 'dist' folder
-        run: |
-          powershell -ExecutionPolicy Bypass -Command "npm run build"
+      - name: Run Build Script
+        # CRITICAL: We use 'cmd' because your package.json uses Windows 'xcopy' and 'if exist'
+        shell: cmd
+        run: npm run build
 
       - name: Archive fortexxui
+        # We use 'powershell' for zipping as it is more reliable for compression
         shell: powershell
         run: |
-          # Verify the 'dist' folder exists, then zip its contents
           if (Test-Path "dist") {
               Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
               Write-Host "Success: 'dist' folder contents zipped."
           } else {
-              Write-Error "Error: 'dist' folder was NOT found after npm build!"
+              Write-Error "Error: 'dist' folder was NOT found! Check the 'Run Build Script' logs."
               exit 1
           }
 
