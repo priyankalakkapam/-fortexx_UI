@@ -8,17 +8,17 @@ on:
 jobs:
   build:
     runs-on: self-hosted
-    # TST environment configuration
     environment: TST
 
     steps:
       - name: Runner Environment Fix
-        # Windows runner meedha Git ownership issues raakunda untundhi
+        # Prevents Git ownership errors on self-hosted Windows runners
         run: git config --global --add safe.directory "*"
 
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
+          # Ignores the ghost submodule error
           submodules: false
           fetch-depth: 1
 
@@ -31,18 +31,19 @@ jobs:
         run: npm install
 
       - name: npm build
-        # Mee package.json lo unna script ikkada dist folder ni create chesthundhi
-        run: npm run build
+        # Force Windows to allow the build script to run and create the 'dist' folder
+        run: |
+          powershell -ExecutionPolicy Bypass -Command "npm run build"
 
       - name: Archive fortexxui
         shell: powershell
         run: |
-          # dist folder contents ni zip chesthunnam
+          # Verify the 'dist' folder exists, then zip its contents
           if (Test-Path "dist") {
               Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
-              Write-Host "Successfully created zip from dist folder."
+              Write-Host "Success: 'dist' folder contents zipped."
           } else {
-              Write-Error "Error: 'dist' folder was not found. Check your npm build script."
+              Write-Error "Error: 'dist' folder was NOT found after npm build!"
               exit 1
           }
 
