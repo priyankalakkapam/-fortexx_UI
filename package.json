@@ -4,7 +4,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "build": "if exist dist rmdir /s /q dist && mkdir dist && xcopy app.js dist\\ /y && xcopy package.json dist\\ /y && xcopy node_modules dist\\node_modules\\ /s /e /y /i /h"
+    "build": "if exist dist rmdir /s /q dist && mkdir dist && echo D | xcopy app.js dist\\ /y && echo D | xcopy package.json dist\\ /y && xcopy node_modules dist\\node_modules\\ /s /e /y /i"
   },
   "dependencies": {
     "express": "^4.18.2"
