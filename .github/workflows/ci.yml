@@ -1,4 +1,4 @@
-name: Build and Deploy to Azure
+name: CI Build and Artifact
 
 on:
   push:
@@ -8,10 +8,12 @@ on:
 jobs:
   build:
     runs-on: self-hosted
+    # TST environment configuration
     environment: TST
 
     steps:
       - name: Runner Environment Fix
+        # Windows runner meedha Git ownership issues raakunda untundhi
         run: git config --global --add safe.directory "*"
 
       - name: Checkout Code
@@ -21,7 +23,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: azure/setup-node@v4
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -29,42 +31,24 @@ jobs:
         run: npm install
 
       - name: npm build
-        # This triggers the PowerShell script you just pushed to package.json
+        # Mee package.json lo unna script ikkada dist folder ni create chesthundhi
         run: npm run build
 
-      - name: Archive Artifact
+      - name: Archive fortexxui
         shell: powershell
         run: |
+          # dist folder contents ni zip chesthunnam
           if (Test-Path "dist") {
-              Compress-Archive -Path dist\* -DestinationPath fortexxui.zip -Force
+              Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+              Write-Host "Successfully created zip from dist folder."
           } else {
-              Write-Error "dist folder missing!"
+              Write-Error "Error: 'dist' folder was not found. Check your npm build script."
               exit 1
           }
 
-      - name: Upload Artifact
+      - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
-          path: fortexxui.zip
-
-  deploy:
-    runs-on: self-hosted
-    needs: build
-    environment: TST
-    steps:
-      - name: Download Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: FortexxUI
-
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'your-app-name' # Replace with your actual Azure Web App name
-          package: fortexxui.zip
+          path: fortexxui-${{ github.run_number }}.zip
+          retention-days: 5
