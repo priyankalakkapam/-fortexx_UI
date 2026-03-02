@@ -1,9 +1,9 @@
-name: Fortexx UI CI-CD
+name: Fortexx UI CI
 
 on:
   push:
     branches:
-      - main   # change if your branch is different
+      - main
 
 jobs:
   build:
@@ -11,46 +11,38 @@ jobs:
     environment: TST
 
     steps:
-      - name: Checkout code
+      # Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
+      # Verify Node version (like Azure agent)
+      - name: Check Node Version
+        run: node -v
 
-      - name: Install dependencies
+      # Install dependencies
+      - name: Install Packages
         run: npm install
 
-      - name: Build project
+      # Build project
+      - name: Build Project
         run: npm run build
 
-      # Zip the build output (CHANGE dist if your folder is different)
-      - name: Create ZIP artifact
+      # Archive build output (same like Azure Archive task)
+      - name: Archive Build
         shell: powershell
         run: |
           if (Test-Path "dist") {
-              Compress-Archive -Path "dist\*" `
-                -DestinationPath "fortexxui-${{ github.run_number }}.zip" `
-                -Force
+              Compress-Archive -Path "dist\*" -DestinationPath "fortexxui-${{ github.run_number }}.zip" -Force
           } elseif (Test-Path "build") {
-              Compress-Archive -Path "build\*" `
-                -DestinationPath "fortexxui-${{ github.run_number }}.zip" `
-                -Force
+              Compress-Archive -Path "build\*" -DestinationPath "fortexxui-${{ github.run_number }}.zip" -Force
           } else {
-              Write-Error "No build output folder found (dist or build)"
+              Write-Error "Build output folder not found"
               exit 1
           }
 
+      # Upload artifact (same like Publish Artifact in Azure)
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
           path: fortexxui-*.zip
-
-      # OPTIONAL: Azure Login (if deploying)
-      - name: Azure Login
-        if: ${{ secrets.AZURE_CREDENTIALS != '' }}
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
