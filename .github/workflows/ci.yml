@@ -27,27 +27,44 @@ jobs:
       - name: npm install
         run: npm install
 
-      - name: Manual Build (Force Create Dist)
-        # Ikkada manam direct ga Windows commands vaadi folder create chesthunnam
+      - name: Force Create Dist Folder
+        # Windows CMD shell use chesthunnam
         shell: cmd
         run: |
+          # 1. Path clean chesi kotha dist folder create chesthunnam
           if exist dist rmdir /s /q dist
           mkdir dist
+          
+          # 2. Files ni dist loki copy chesthunnam (echo D ante Directory ani artham)
           echo D | xcopy app.js dist\ /y
           echo D | xcopy package.json dist\ /y
+          
+          # 3. node_modules ni copy chesthunnam (e/y/i flags automatic copy ki help avthayi)
           xcopy node_modules dist\node_modules\ /s /e /y /i
 
-      - name: Verify Folder Existence
+      - name: Verify Dist Folder
         shell: cmd
         run: |
-          dir dist
-          if exist dist (echo "SUCCESS: Dist folder is ready") else (exit 1)
+          echo "Checking if dist folder was created..."
+          if exist dist (
+            dir dist
+            echo "SUCCESS: Dist folder is ready with files!"
+          ) else (
+            echo "ERROR: Dist folder could not be created!"
+            exit 1
+          )
 
       - name: Archive fortexxui
         shell: powershell
         run: |
-          # Zipping the verified dist folder
-          Compress-Archive -Path dist\* -DestinationPath fortexxui.zip -Force
+          # Dist folder contents ni zip chesthunnam
+          if (Test-Path "dist") {
+              Compress-Archive -Path dist\* -DestinationPath fortexxui.zip -Force
+              Write-Host "Success: fortexxui.zip created."
+          } else {
+              Write-Error "Error: Dist folder missing during zip."
+              exit 1
+          }
 
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
