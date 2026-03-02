@@ -1,14 +1,14 @@
-name: Fortexx UI CI
+name: Fortexx UI CI-CD
 
 on:
   push:
     branches:
-      - main   # change if needed
+      - main   # change if your branch is different
 
 jobs:
   build:
-    runs-on: self-hosted   # because you created self-hosted runner
-    environment: TST       # your GitHub environment name
+    runs-on: self-hosted
+    environment: TST
 
     steps:
       - name: Checkout code
@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'   # change if your project uses different version
+          node-version: '18'
 
       - name: Install dependencies
         run: npm install
@@ -25,15 +25,32 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # Create zip like Azure artifact
-      - name: Archive build
+      # Zip the build output (CHANGE dist if your folder is different)
+      - name: Create ZIP artifact
+        shell: powershell
         run: |
-          mkdir artifact
-          powershell Compress-Archive -Path .\dist\* -DestinationPath artifact\fortexxui-${{ github.run_number }}.zip
+          if (Test-Path "dist") {
+              Compress-Archive -Path "dist\*" `
+                -DestinationPath "fortexxui-${{ github.run_number }}.zip" `
+                -Force
+          } elseif (Test-Path "build") {
+              Compress-Archive -Path "build\*" `
+                -DestinationPath "fortexxui-${{ github.run_number }}.zip" `
+                -Force
+          } else {
+              Write-Error "No build output folder found (dist or build)"
+              exit 1
+          }
 
-      # Upload artifact (same like Azure "Publish Artifact")
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
-          path: artifact/*.zip
+          path: fortexxui-*.zip
+
+      # OPTIONAL: Azure Login (if deploying)
+      - name: Azure Login
+        if: ${{ secrets.AZURE_CREDENTIALS != '' }}
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
