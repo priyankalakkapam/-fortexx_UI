@@ -1,133 +1,39 @@
-name: Build and Publish Artifact
+name: Fortexx UI CI
 
 on:
   push:
     branches:
-      - main
-      - develop
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
-
-env:
-  ARTIFACT_NAME: fortexxui
-  NODE_VERSION: '18'
+      - main   # change if needed
 
 jobs:
   build:
-    name: Build Job
-    runs-on: ubuntu-latest
-    environment: TST
-    permissions:
-      contents: read
-      packages: write
+    runs-on: self-hosted   # because you created self-hosted runner
+    environment: TST       # your GitHub environment name
 
     steps:
-      # 1. Checkout code
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # 2. Initialize Job
-      - name: Initialize job
-        run: echo "Starting build pipeline for ${{ env.ARTIFACT_NAME }}"
-
-      # 3. Setup Node.js
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          node-version: '18'   # change if your project uses different version
 
-      # 4. npm install
-      - name: npm install
+      - name: Install dependencies
         run: npm install
 
-      # 5. npm build
-      - name: npm build
+      - name: Build project
         run: npm run build
 
-      # 6. Command Line - Custom commands
-      - name: Pre-archive commands
+      # Create zip like Azure artifact
+      - name: Archive build
         run: |
-          echo "Build completed successfully"
-          echo "Artifact version: $(git describe --tags --always)"
+          mkdir artifact
+          powershell Compress-Archive -Path .\dist\* -DestinationPath artifact\fortexxui-${{ github.run_number }}.zip
 
-      # 7. Archive the build output
-      - name: Archive build directory
-        run: |
-          if [ -d "dist" ] || [ -d "build" ]; then
-            tar -czf ${{ env.ARTIFACT_NAME }}-$(date +%s).tar.gz dist/ build/ package.json package-lock.json 2>/dev/null || true
-            tar -czf ${{ env.ARTIFACT_NAME }}.tar.gz dist/ build/ package.json package-lock.json 2>/dev/null || true
-          else
-            echo "Creating artifact from root directory"
-            tar -czf ${{ env.ARTIFACT_NAME }}.tar.gz . --exclude=node_modules --exclude=.git
-          fi
-
-      # 8. Publish Artifact to GitHub (for all branches)
-      - name: Publish Artifact
+      # Upload artifact (same like Azure "Publish Artifact")
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME }}-build
-          path: ${{ env.ARTIFACT_NAME }}.tar.gz
-          retention-days: 30
-          if-no-files-found: ignore
-
-      # 9. Upload to Release (only on tag push)
-      - name: Create Release and Upload Artifact
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: ${{ env.ARTIFACT_NAME }}.tar.gz
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 10. Command Line - Post-archive
-      - name: Post-build commands
-        run: |
-          echo "Artifact creation completed"
-          ls -lh ${{ env.ARTIFACT_NAME }}.tar.gz || echo "Artifact file not found"
-
-      # 11. Publish to GitHub Packages
-      - name: Publish to GitHub Packages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          npm publish --registry https://npm.pkg.github.com/
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-
-      # 12. Upload as Release Asset
-      - name: Upload Release Assets
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-artifact
-          path: ${{ env.ARTIFACT_NAME }}.tar.gz
-          retention-days: 90
-
-  notify:
-    name: Post-job Notification
-    needs: build
-    runs-on: ubuntu-latest
-    if: always()
-
-    steps:
-      - name: Check Build Status
-        run: |
-          if [ "${{ needs.build.result }}" == "success" ]; then
-            echo "✅ Build completed successfully!"
-          else
-            echo "❌ Build failed!"
-            exit 1
-          fi
-
-      - name: Report build results
-        run: echo "Build pipeline finished with status: ${{ needs.build.result }}"
+          name: FortexxUI
+          path: artifact/*.zip
