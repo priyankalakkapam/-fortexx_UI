@@ -14,19 +14,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # This is the "magic" fix for your specific error
+          # This stops GitHub from trying to look for any submodules like FastXeUI
           submodules: false
-          # This tells GitHub to ignore the broken submodule entry
-          persist-credentials: false 
+          # We tell it NOT to persist credentials to prevent submodule sync attempts
+          persist-credentials: false
 
-      - name: Force Remove Bad Git Paths
-        # This step manually deletes the problematic folder entry if it exists
+      - name: Manually Remove Ghost Paths
         shell: powershell
         run: |
-          if (Test-Path "Users") {
-            Remove-Item -Recurit -Force Users
-            Write-Host "Cleaned up the problematic Users folder."
-          }
+          # This forces Git to forget the 'Users' path exists in the index
+          git rm -r --cached Users --ignore-unmatch
+          Write-Host "Cleaned up old FastXeUI references."
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,8 +42,9 @@ jobs:
         run: |
           if (Test-Path "dist") {
               Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+              Write-Host "Successfully zipped fortexxui artifact."
           } else {
-              Write-Error "Build output (dist) folder not found."
+              Write-Error "dist folder not found. Build might have failed."
               exit 1
           }
 
