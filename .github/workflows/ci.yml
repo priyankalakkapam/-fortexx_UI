@@ -7,20 +7,20 @@ on:
 
 jobs:
   build:
-    # Using your self-hosted Windows runner
     runs-on: self-hosted
-    
-    # Using the TST environment you created
     environment: TST
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          # This prevents the "submodule mapping" error from stopping the build
+          submodules: false 
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # Adjust based on your project requirements
+          node-version: '24.13.1' # Matching your local version
 
       - name: npm install
         run: npm install
@@ -28,16 +28,19 @@ jobs:
       - name: npm build
         run: npm run build
 
-      # Archiving the dist folder as seen in your screenshots
       - name: Archive Build Folder
+        # Changed 'shell: pwsh' to 'shell: powershell'
         run: |
-          Compress-Archive -Path dist/* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
-        shell: pwsh
+          if (Test-Path dist) {
+            Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
+          } else {
+            Write-Error "Dist folder not found! Build might have failed."
+            exit 1
+          }
+        shell: powershell
 
-      # Publishing the artifact to GitHub
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FortexxUI
           path: fortexxui-${{ github.run_number }}.zip
-          retention-days: 5
