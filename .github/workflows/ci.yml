@@ -8,13 +8,13 @@ on:
 jobs:
   build:
     runs-on: self-hosted
-    environment: TST # Matches your TST environment
+    environment: TST
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          submodules: false # Prevents the FastXeUI ghost folder error
+          submodules: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,29 +24,27 @@ jobs:
       - name: npm install
         run: npm install
 
-      - name: Prepare Dist Folder
-        # This step manually creates the 'dist' folder you need
+      - name: Create Dist Folder
         shell: powershell
         run: |
-          # 1. Create the folder
-          if (!(Test-Path "dist")) {
-              New-Item -ItemType Directory -Force -Path "dist"
-          }
+          # 1. Ensure a clean dist directory exists
+          if (Test-Path "dist") { Remove-Item -Recurse -Force dist }
+          New-Item -ItemType Directory -Force -Path "dist"
           
-          # 2. Copy your app files into 'dist' (matching Azure structure)
-          Copy-Item -Path "app.js", "package.json", "node_modules" -Destination "dist" -Recurse -Force
+          # 2. Copy the files you just verified (node_modules + app logic)
+          Copy-Item -Path "app.js", "package.json", "package-lock.json" -Destination "dist" -Force
+          Copy-Item -Path "node_modules" -Destination "dist" -Recurse -Force
           
-          Write-Host "Manually created 'dist' folder and copied files."
+          Write-Host "Dist folder successfully prepared with node_modules."
 
-      - name: Archive Dist Folder
+      - name: Archive Artifact
         shell: powershell
         run: |
-          # Zip the contents of the newly created dist folder
+          # Zip the contents of the dist folder
           Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
 
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FortexxUI # Matches your FortexxUI artifact name
+          name: FortexxUI
           path: fortexxui-${{ github.run_number }}.zip
-          retention-days: 5
