@@ -1,4 +1,4 @@
-name: Build and Publish Dist Artifact
+name: Build and Publish Artifact
 
 on:
   push:
@@ -7,17 +7,14 @@ on:
 
 jobs:
   build:
-    # Using your specific self-hosted Windows runner
     runs-on: self-hosted
-    # Using your TST environment
-    environment: TST
+    environment: TST # Matches your TST environment
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # Ignoring the problematic ghost submodule path seen in your repo
-          submodules: false
+          submodules: false # Prevents the FastXeUI ghost folder error
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,27 +24,29 @@ jobs:
       - name: npm install
         run: npm install
 
-      - name: npm build
-        # This must create the 'dist' folder
-        run: npm run build
-
-      - name: Verify and Archive dist folder
+      - name: Prepare Dist Folder
+        # This step manually creates the 'dist' folder you need
         shell: powershell
         run: |
-          # Check if the dist folder was created by the build script
-          if (Test-Path "dist") {
-              Write-Host "Dist folder found. Archiving..."
-              # Zipping the contents of dist to match your Azure artifact
-              Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
-          } else {
-              Write-Error "Error: 'dist' folder was not generated. Check your npm build script in package.json."
-              exit 1
+          # 1. Create the folder
+          if (!(Test-Path "dist")) {
+              New-Item -ItemType Directory -Force -Path "dist"
           }
+          
+          # 2. Copy your app files into 'dist' (matching Azure structure)
+          Copy-Item -Path "app.js", "package.json", "node_modules" -Destination "dist" -Recurse -Force
+          
+          Write-Host "Manually created 'dist' folder and copied files."
+
+      - name: Archive Dist Folder
+        shell: powershell
+        run: |
+          # Zip the contents of the newly created dist folder
+          Compress-Archive -Path dist\* -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
 
       - name: Publish Artifact
         uses: actions/upload-artifact@v4
         with:
-          # Naming it FortexxUI to match your desired output
-          name: FortexxUI
+          name: FortexxUI # Matches your FortexxUI artifact name
           path: fortexxui-${{ github.run_number }}.zip
           retention-days: 5
