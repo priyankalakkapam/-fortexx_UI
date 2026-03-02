@@ -11,16 +11,10 @@ jobs:
     environment: TST
 
     steps:
-      - name: Force Clean Ghost Path
-        shell: powershell
-        run: |
-          # This stops the "no submodule mapping" error before it starts
-          git rm -r --cached Users --ignore-unmatch
-          Write-Host "Cleaned ghost submodule reference."
-
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
+          # This prevents the "fatal: no submodule mapping" crash
           submodules: false
           fetch-depth: 1
 
@@ -32,26 +26,25 @@ jobs:
       - name: npm install
         run: npm install
 
-      - name: Create Dist Folder Structure
+      - name: Create Dist Folder
         shell: powershell
         run: |
-          # 1. Delete old dist if it exists and create a fresh one
+          # 1. Clear old data
           if (Test-Path "dist") { Remove-Item -Recurse -Force dist }
+          
+          # 2. Create the physical folder you want to see in the zip
           New-Item -ItemType Directory -Force -Path "dist"
           
-          # 2. Copy your app files INTO the dist folder
+          # 3. Copy files into it
           Copy-Item -Path "app.js", "package.json", "package-lock.json" -Destination "dist" -Force
-          
-          # 3. Copy node_modules into dist (this makes it a working folder)
           if (Test-Path "node_modules") {
               Copy-Item -Path "node_modules" -Destination "dist" -Recurse -Force
           }
-          Write-Host "Success: 'dist' folder created with all files."
 
       - name: Archive fortexxui
         shell: powershell
         run: |
-          # This zips the DIST folder itself so it looks like your screenshot
+          # We zip the 'dist' folder itself so it appears as a folder when unzipped
           Compress-Archive -Path dist -DestinationPath fortexxui-${{ github.run_number }}.zip -Force
 
       - name: Publish Artifact
